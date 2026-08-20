@@ -1,0 +1,73 @@
+name: costwatch
+
+on:
+  schedule:
+    # Hourly: pick up any receipt photo you sent, match, push what's claimable.
+    # Cheap — the LLM only fires when a photo is actually waiting, so a quiet
+    # run is just a Telegram poll. Hourly keeps us near ~750 of the 2,000 free
+    # private-repo minutes a month; every 30 min would not fit.
+    - cron: "5 * * * *"
+    # Monday: also re-read the savings book and push what's starting soon.
+    # Costco books run 28 days Mon-Sun, so weekly catches a new one within days
+    # of publication. Re-imports dedupe on the UNIQUE constraint.
+    - cron: "30 14 * * 1"
+  workflow_dispatch:
+    inputs:
+      import_book:
+        description: "Also re-import the coupon book"
+        type: boolean
+        default: false
+
+concurrency:
+  group: costwatch
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      # Leave unset unless a repo variable overrides it, so config.py stays the
+      # single source of truth for the default. Duplicating it here is how the
+      # retired gemini-2.5-flash-lite survived a default change in code.
+      GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+      ALERT_LEAD_DAYS: ${{ vars.ALERT_LEAD_DAYS || '7' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Import coupon book
+        if: github.event.schedule == '30 14 * * 1' || inputs.import_book
+        run: python -m costwatch import-book
+        continue-on-error: true
+
+      - name: Receipts, match, push
+        run: python -m costwatch run ${{ github.event.schedule == '30 14 * * 1' && '--upcoming' || '' }}
+
+      # ⚠️ PRIVACY: this commits data/costwatch.db back to the repository,
+      # because Actions runners have no persistent disk. That database holds
+      # your purchase history -- items, prices, dates and your warehouse.
+      #
+      # RUN THIS IN A PRIVATE REPOSITORY. In a public one you are publishing
+      # your shopping history on an hourly schedule, and every past version
+      # stays in git history afterwards.
+      - name: Persist state
+        if: always()
+        run: |
+          git config user.name  "costwatch"
+          git config user.email "costwatch@users.noreply.github.com"
+          git add -f data/costwatch.db
+          git diff --staged --quiet || git commit -m "state: $(date -u +%Y-%m-%d)"
+          git push

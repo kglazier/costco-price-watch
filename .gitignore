@@ -1,0 +1,13 @@
+# Secrets. Never commit.
+.env
+
+# Everything the tool generates: your purchase history, receipt images,
+# downloaded catalog pages. Deny the whole directory rather than listing
+# known-bad paths -- see the privacy note in the README before changing this.
+data/
+
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.stackdump
