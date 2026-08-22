@@ -1,3 +1,13 @@
+# This workflow is DISABLED in this repository, on purpose.
+#
+# This repo is the reference implementation -- it holds no secrets and no
+# database, so the schedule below would just fail hourly on a missing
+# TELEGRAM_BOT_TOKEN. The schedule is kept intact because it is the
+# configuration you actually want in your own PRIVATE fork.
+#
+# To run it for real: fork privately, add the three secrets listed in
+# SETUP.md, then enable Actions.
+
 name: costwatch
 
 on:

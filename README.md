@@ -74,7 +74,10 @@ In a public repo you'd be publishing your shopping history on an hourly
 schedule, and every past version would remain in git history afterwards. Fork
 it private.
 
-This repository is the code only; it carries no database and never has.
+This repository is the code only; it carries no database and never has. The
+scheduled workflow is disabled here for the same reason — there are no secrets
+to run it with. Fork privately, add the three secrets from
+[SETUP.md](SETUP.md), then enable Actions.
 
 ## Setup
 
